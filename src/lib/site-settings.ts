@@ -63,6 +63,20 @@ export const DEFAULT_SETTINGS: SiteSettings = {
       'Moda praia e vestidos autorais. Peças selecionadas, produção limitada, para quem veste com intenção.',
     copyrightText: 'SARONG. Vendas realizadas através do Mercado Livre.',
   },
+
+  // Antes (V1.3): 6 imagens fixas no código (MOCK_POSTS em InstagramFeed.tsx),
+  // todas linkando para o mesmo instagramUrl genérico. Agora: editável pelo
+  // painel — cada post tem sua própria imagem e, opcionalmente, seu próprio
+  // link (post individual do Instagram); link vazio cai no instagramUrl geral
+  // (contact.instagramUrl), igual ao comportamento antigo.
+  instagramFeed: [
+    { imageUrl: 'https://images.unsplash.com/photo-1560243563-062bfc001d68?q=80&w=800&auto=format&fit=crop', linkHref: '' },
+    { imageUrl: 'https://images.unsplash.com/photo-1570976447640-ac859083963e?q=80&w=800&auto=format&fit=crop', linkHref: '' },
+    { imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=800&auto=format&fit=crop', linkHref: '' },
+    { imageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop', linkHref: '' },
+    { imageUrl: 'https://images.unsplash.com/photo-1533561797500-4fad4750814e?q=80&w=800&auto=format&fit=crop', linkHref: '' },
+    { imageUrl: 'https://images.unsplash.com/photo-1521205624015-1c3ea6774dfd?q=80&w=800&auto=format&fit=crop', linkHref: '' },
+  ],
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
