@@ -40,6 +40,11 @@ export interface SiteSettings {
     description: string;
     copyrightText: string;
   };
+
+  instagramFeed: {
+    imageUrl: string;
+    linkHref: string;
+  }[];
 }
 
 export type DeepPartial<T> = {
