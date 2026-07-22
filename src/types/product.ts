@@ -60,6 +60,7 @@ export interface Collection {
   slug: string;
   description?: string;
   imageUrl?: string;
+  linkHref?: string;
   displayOrder: number;
   active: boolean;
 }
