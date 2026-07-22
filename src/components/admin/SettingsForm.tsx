@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import type { SiteSettings } from '@/types/settings';
+import ImageField from './ImageField';
 
 interface SettingsFormProps {
   settings: SiteSettings;
@@ -118,11 +119,10 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
             />
           </div>
           <div>
-            <label className={labelClass}>URL da imagem de fundo</label>
-            <input
+            <ImageField
+              label="Imagem de fundo"
               value={form.heroBanner.imageUrl}
-              onChange={(e) => update('heroBanner', { imageUrl: e.target.value })}
-              className={inputClass}
+              onChange={(url) => update('heroBanner', { imageUrl: url })}
             />
           </div>
         </div>
@@ -172,11 +172,10 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
             />
           </div>
           <div className="md:col-span-2">
-            <label className={labelClass}>URL da imagem de fundo</label>
-            <input
+            <ImageField
+              label="Imagem de fundo"
               value={form.secondaryBanner.imageUrl}
-              onChange={(e) => update('secondaryBanner', { imageUrl: e.target.value })}
-              className={inputClass}
+              onChange={(url) => update('secondaryBanner', { imageUrl: url })}
             />
           </div>
         </div>
@@ -194,11 +193,10 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
             />
           </div>
           <div>
-            <label className={labelClass}>URL da imagem</label>
-            <input
+            <ImageField
+              label="Imagem"
               value={form.about.imageUrl}
-              onChange={(e) => update('about', { imageUrl: e.target.value })}
-              className={inputClass}
+              onChange={(url) => update('about', { imageUrl: url })}
             />
           </div>
           <div className="md:col-span-2">
