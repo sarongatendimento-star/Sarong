@@ -6,7 +6,7 @@ import { settingsUpdateSchema } from '@/lib/validation/settings';
 // GET /api/settings — leitura pública (o painel usa para pré-carregar o
 // formulário; a vitrine em si lê direto via getSiteSettings() no servidor).
 export async function GET() {
-  const settings = getSiteSettings();
+  const settings = await getSiteSettings();
   return NextResponse.json(settings);
 }
 
