@@ -47,7 +47,7 @@ export default async function HomePage() {
           imageUrl={settings.about.imageUrl}
         />
         <WhyChooseUs />
-        <InstagramFeed instagramUrl={settings.contact.instagramUrl} />
+        <InstagramFeed instagramUrl={settings.contact.instagramUrl} posts={settings.instagramFeed} />
       </main>
       <Footer logoText={settings.logoText} contact={settings.contact} footer={settings.footer} />
     </>
