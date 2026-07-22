@@ -22,6 +22,19 @@ interface InstagramFeedProps {
   posts: InstagramPost[];
 }
 
+// Extrai o @handle a partir da URL do Instagram configurada em
+// Contato > Instagram (URL) — assim o texto "@..." acima do título fica
+// sempre igual ao link real, sem precisar editar em dois lugares.
+function extractHandle(instagramUrl: string): string {
+  try {
+    const path = new URL(instagramUrl).pathname;
+    const handle = path.split('/').filter(Boolean)[0];
+    return handle ? `@${handle}` : '@sarong';
+  } catch {
+    return '@sarong';
+  }
+}
+
 export default function InstagramFeed({ instagramUrl = 'https://instagram.com', posts }: InstagramFeedProps) {
   const visiblePosts = posts.filter((post) => post.imageUrl);
 
@@ -30,7 +43,7 @@ export default function InstagramFeed({ instagramUrl = 'https://instagram.com', 
   return (
     <section className="bg-sarong-off py-24">
       <Container>
-        <SectionHeading eyebrow="@sarong" title="Siga no Instagram" align="center" />
+        <SectionHeading eyebrow={extractHandle(instagramUrl)} title="Siga no Instagram" align="center" />
         <div className="mt-12 grid grid-cols-3 gap-2 md:grid-cols-6">
           {visiblePosts.map((post, i) => (
             <a
