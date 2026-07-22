@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <nav className="flex gap-6 text-xs uppercase tracking-widest2 text-sarong-black/60">
             <Link href="/admin/dashboard" className="hover:text-sarong-black">Dashboard</Link>
             <Link href="/admin/dashboard/produtos" className="hover:text-sarong-black">Produtos</Link>
+            <Link href="/admin/dashboard/colecoes" className="hover:text-sarong-black">Coleções</Link>
             <Link href="/admin/dashboard/configuracoes" className="hover:text-sarong-black">Configurações</Link>
           </nav>
         </div>
