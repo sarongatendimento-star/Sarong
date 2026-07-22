@@ -17,7 +17,7 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   const categories = await getAllCategories();
-  const settings = getSiteSettings();
+  const settings = await getSiteSettings();
 
   return (
     <>
