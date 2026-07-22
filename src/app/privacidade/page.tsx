@@ -15,7 +15,7 @@ export const metadata: Metadata = buildMetadata({
 
 export default async function PrivacidadePage() {
   const categories = await getAllCategories();
-  const settings = getSiteSettings();
+  const settings = await getSiteSettings();
 
   return (
     <>
