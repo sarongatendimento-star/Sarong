@@ -69,6 +69,15 @@ export const settingsUpdateSchema = z.object({
     })
     .partial()
     .optional(),
+
+  instagramFeed: z
+    .array(
+      z.object({
+        imageUrl: imageUrlSchema.optional().or(z.literal('')),
+        linkHref: z.string().max(300).optional().or(z.literal('')),
+      })
+    )
+    .optional(),
 });
 
 export type SettingsUpdateInput = z.infer<typeof settingsUpdateSchema>;
