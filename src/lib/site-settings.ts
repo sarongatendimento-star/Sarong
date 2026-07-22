@@ -1,19 +1,22 @@
 import 'server-only';
 import { cache } from 'react';
+import { supabasePublic } from '@/lib/supabase/public';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { IS_SUPABASE_CONFIGURED, IS_SUPABASE_ADMIN_CONFIGURED } from '@/lib/supabase/config';
 import { readStore, writeStore, type WriteResult } from '@/lib/content-store';
 import type { DeepPartial, SiteSettings } from '@/types/settings';
 
 // -----------------------------------------------------------------------------
-// Configurações editáveis do site (banners, logo, contato, rodapé) — modo
-// PREVIEW: gravadas localmente via src/lib/content-store.ts (ver o aviso
-// sobre persistência na Vercel naquele arquivo). Os valores padrão abaixo são
-// EXATAMENTE o conteúdo que já estava fixo no código antes desta versão —
-// então, sem nenhuma edição no painel, o site continua idêntico.
+// Configurações editáveis do site (banners, logo, contato, rodapé) — mesmo
+// padrão de src/lib/products.ts e src/lib/categories.ts: quando o Supabase
+// está configurado, lê/grava na tabela `settings` (linha única, id = 1,
+// coluna `content` em jsonb com o objeto SiteSettings inteiro). Sem Supabase
+// configurado (MODO PREVIEW), continua gravando localmente via
+// src/lib/content-store.ts, exatamente como antes.
 //
-// Quando a V2 reconectar o Supabase, troque a implementação de
-// getSiteSettings()/updateSiteSettings() para ler/escrever numa tabela
-// `settings` (1 linha, mesmo padrão de supabase/schema.sql) — o tipo
-// SiteSettings e todos os componentes que o consomem não precisam mudar.
+// Os valores padrão abaixo (DEFAULT_SETTINGS) continuam sendo a base do
+// deepMerge em ambos os modos — servem tanto de fallback quanto de "primeira
+// carga" antes de qualquer edição no painel.
 // -----------------------------------------------------------------------------
 
 const FILE_NAME = 'settings.json';
@@ -83,18 +86,63 @@ function deepMerge<T>(base: T, patch: DeepPartial<T> | Partial<T> | undefined): 
   return result;
 }
 
-// `cache()` do React: dentro do mesmo request, várias páginas/componentes
-// podem chamar getSiteSettings() sem repetir a leitura em disco.
-export const getSiteSettings = cache((): SiteSettings => {
-  const stored = readStore<Partial<SiteSettings>>(FILE_NAME, {});
-  return deepMerge(DEFAULT_SETTINGS, stored);
+// Formato da linha na tabela `settings`: id fixo (1) + o objeto inteiro numa
+// coluna jsonb. As colunas antigas (whatsapp_url, logo_url etc., do schema
+// original) ficam paradas na tabela sem uso — não fazem mal, só não são mais
+// a fonte de dados.
+interface SettingsRow {
+  content: Partial<SiteSettings> | null;
+}
+
+// `cache()` do React: dentro do MESMO request, várias páginas/componentes
+// podem chamar getSiteSettings() sem repetir a consulta ao banco (ou a
+// leitura em disco, no modo Preview).
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
+  if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
+    const stored = readStore<Partial<SiteSettings>>(FILE_NAME, {});
+    return deepMerge(DEFAULT_SETTINGS, stored);
+  }
+
+  const { data, error } = await supabasePublic
+    .from('settings')
+    .select('content')
+    .eq('id', 1)
+    .maybeSingle<SettingsRow>();
+
+  if (error) throw new Error(`Erro ao buscar configurações: ${error.message}`);
+  return deepMerge(DEFAULT_SETTINGS, data?.content ?? {});
 });
 
-export function updateSiteSettings(
+export async function updateSiteSettings(
   patch: DeepPartial<SiteSettings>
-): WriteResult & { settings: SiteSettings } {
-  const current = deepMerge(DEFAULT_SETTINGS, readStore<Partial<SiteSettings>>(FILE_NAME, {}));
+): Promise<WriteResult & { settings: SiteSettings }> {
+  if (!IS_SUPABASE_ADMIN_CONFIGURED || !supabaseAdmin) {
+    const current = deepMerge(DEFAULT_SETTINGS, readStore<Partial<SiteSettings>>(FILE_NAME, {}));
+    const merged = deepMerge(current, patch);
+    const result = writeStore(FILE_NAME, merged);
+    return { ...result, settings: merged };
+  }
+
+  const { data: currentRow, error: fetchError } = await supabaseAdmin
+    .from('settings')
+    .select('content')
+    .eq('id', 1)
+    .maybeSingle<SettingsRow>();
+
+  if (fetchError) {
+    return { ok: false, ephemeral: false, error: fetchError.message, settings: DEFAULT_SETTINGS };
+  }
+
+  const current = deepMerge(DEFAULT_SETTINGS, currentRow?.content ?? {});
   const merged = deepMerge(current, patch);
-  const result = writeStore(FILE_NAME, merged);
-  return { ...result, settings: merged };
+
+  const { error: upsertError } = await supabaseAdmin
+    .from('settings')
+    .upsert({ id: 1, content: merged }, { onConflict: 'id' });
+
+  if (upsertError) {
+    return { ok: false, ephemeral: false, error: upsertError.message, settings: merged };
+  }
+
+  return { ok: true, ephemeral: false, settings: merged };
 }
