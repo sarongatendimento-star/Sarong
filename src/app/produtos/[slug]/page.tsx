@@ -48,7 +48,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
   if (!product) notFound();
 
   const categories = await getAllCategories();
-  const settings = getSiteSettings();
+  const settings = await getSiteSettings();
   const jsonLd = buildProductJsonLd(product);
 
   return (
