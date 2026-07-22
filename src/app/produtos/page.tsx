@@ -29,7 +29,7 @@ export default async function ProdutosPage({
   // Categorias vêm do banco (V1.1) — Header e ProductFilters não têm mais
   // nenhuma lista fixa embutida no código.
   const categories = await getAllCategories();
-  const settings = getSiteSettings();
+  const settings = await getSiteSettings();
   const validSlugs = categories.map((c) => c.slug);
 
   const categoria =
