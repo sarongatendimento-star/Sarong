@@ -299,6 +299,46 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
         </div>
       </div>
 
+      <div className={sectionClass}>
+        <h2 className={sectionTitleClass}>Posts do Instagram (seção "Siga no Instagram")</h2>
+        <p className="mb-5 text-xs text-sarong-black/50">
+          Cada imagem é opcional de ter seu próprio link — se deixar em branco, usa o link geral do
+          Instagram (definido acima, em "Contato e redes sociais").
+        </p>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {form.instagramFeed.map((post, index) => (
+            <div key={index} className="space-y-3 border border-sarong-black/10 p-4">
+              <ImageField
+                label={`Imagem ${index + 1}`}
+                value={post.imageUrl}
+                onChange={(url) =>
+                  setForm((f) => {
+                    const instagramFeed = [...f.instagramFeed];
+                    instagramFeed[index] = { ...instagramFeed[index], imageUrl: url };
+                    return { ...f, instagramFeed };
+                  })
+                }
+              />
+              <div>
+                <label className={labelClass}>Link do post (opcional)</label>
+                <input
+                  value={post.linkHref}
+                  onChange={(e) =>
+                    setForm((f) => {
+                      const instagramFeed = [...f.instagramFeed];
+                      instagramFeed[index] = { ...instagramFeed[index], linkHref: e.target.value };
+                      return { ...f, instagramFeed };
+                    })
+                  }
+                  placeholder="https://www.instagram.com/p/..."
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {message && (
         <p
           className={
