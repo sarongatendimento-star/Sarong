@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const result = updateSiteSettings(parsed.data);
+  const result = await updateSiteSettings(parsed.data);
 
   if (!result.ok) {
     return NextResponse.json(
