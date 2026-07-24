@@ -1,27 +1,37 @@
-import Link from 'next/link';
-import LogoutButton from '@/components/admin/LogoutButton';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAllCategories, createCategory } from '@/lib/categories';
+import { hasSession } from '@/lib/auth';
+import { categoryCreateSchema } from '@/lib/validation/categories';
 
-// Shell compartilhado por todas as telas de /admin/dashboard/** (Dashboard,
-// Produtos, Novo produto, Editar produto) — V1.2. A barra superior com
-// navegação e logout existia duplicada dentro da página única antiga; agora
-// vive uma vez só, aqui, e não afeta a tela de login (/admin), que usa o
-// layout pai (src/app/admin/layout.tsx) sem esta barra.
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <header className="flex items-center justify-between border-b border-sarong-black/10 px-6 py-5 md:px-10">
-        <div className="flex items-center gap-10">
-          <p className="text-lg tracking-widest2 text-sarong-black">SARONG · Admin</p>
-          <nav className="flex gap-6 text-xs uppercase tracking-widest2 text-sarong-black/60">
-            <Link href="/admin/dashboard" className="hover:text-sarong-black">Dashboard</Link>
-            <Link href="/admin/dashboard/produtos" className="hover:text-sarong-black">Produtos</Link>
-            <Link href="/admin/dashboard/colecoes" className="hover:text-sarong-black">Coleções</Link>
-            <Link href="/admin/dashboard/configuracoes" className="hover:text-sarong-black">Configurações</Link>
-          </nav>
-        </div>
-        <LogoutButton />
-      </header>
-      <main className="px-6 py-10 md:px-10">{children}</main>
-    </>
-  );
+// GET /api/categories — leitura pública (mesma policy de RLS da vitrine).
+// Consumida pelo dashboard admin para popular o <select> de categoria do
+// formulário de produto, em vez do array fixo que existia antes da V1.1.
+export async function GET() {
+  const categories = await getAllCategories();
+  return NextResponse.json(categories);
+}
+
+// POST /api/categories — cria uma categoria nova. Protegida por hasSession(),
+// mesmo guard usado por /api/products, /api/settings e /api/collections.
+export async function POST(request: NextRequest) {
+  if (!(await hasSession())) {
+    return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const parsed = categoryCreateSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message || 'Dados inválidos.', issues: parsed.error.issues },
+      { status: 400 }
+    );
+  }
+
+  const result = await createCategory(parsed.data);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  return NextResponse.json({ category: result.category }, { status: 201 });
 }
