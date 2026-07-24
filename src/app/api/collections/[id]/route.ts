@@ -1,18 +1,32 @@
-import { getAllCategoriesForAdmin } from '@/lib/categories';
-import CategoriesForm from '@/components/admin/CategoriesForm';
+import { NextRequest, NextResponse } from 'next/server';
+import { hasSession } from '@/lib/auth';
+import { updateCollection } from '@/lib/collections';
+import { collectionUpdateSchema } from '@/lib/validation/collections';
 
-export default async function CategoriasPage() {
-  const categories = await getAllCategoriesForAdmin();
+// PATCH /api/collections/[id] — atualiza nome, imagem, link ou status
+// (ativa/inativa) de uma coleção. Protegida por hasSession(), mesmo guard
+// usado por /api/products e /api/settings.
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  if (!(await hasSession())) {
+    return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+  }
 
-  return (
-    <div>
-      <h1 className="mb-2 text-2xl tracking-tight text-sarong-black">Categorias</h1>
-      <p className="mb-8 text-sm text-sarong-black/60">
-        Controla o menu e os filtros de produto do site. Categorias desativadas somem do site, mas
-        continuam guardadas aqui. O identificador de cada categoria (usado nos links) não pode ser
-        alterado depois de criada.
-      </p>
-      <CategoriesForm categories={categories} />
-    </div>
-  );
+  const { id } = params;
+  const body = await request.json().catch(() => null);
+  const parsed = collectionUpdateSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message || 'Dados inválidos.', issues: parsed.error.issues },
+      { status: 400 }
+    );
+  }
+
+  const result = await updateCollection(id, parsed.data);
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  return NextResponse.json({ collection: result.collection });
 }
