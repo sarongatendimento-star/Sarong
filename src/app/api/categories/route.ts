@@ -1,22 +1,37 @@
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAllCategories, createCategory } from '@/lib/categories';
+import { hasSession } from '@/lib/auth';
+import { categoryCreateSchema } from '@/lib/validation/categories';
 
-// Atualização de categoria existente — slug NUNCA faz parte daqui (ver
-// comentário em src/lib/categories.ts sobre por que ele é fixo).
-export const categoryUpdateSchema = z
-  .object({
-    name: z.string().min(1, 'Informe um nome').max(80).optional(),
-    displayOrder: z.number().int().min(0).max(999).optional(),
-    active: z.boolean().optional(),
-  })
-  .partial();
+// GET /api/categories — leitura pública (mesma policy de RLS da vitrine).
+// Consumida pelo dashboard admin para popular o <select> de categoria do
+// formulário de produto, em vez do array fixo que existia antes da V1.1.
+export async function GET() {
+  const categories = await getAllCategories();
+  return NextResponse.json(categories);
+}
 
-export type CategoryUpdateInput = z.infer<typeof categoryUpdateSchema>;
+// POST /api/categories — cria uma categoria nova. Protegida por hasSession(),
+// mesmo guard usado por /api/products, /api/settings e /api/collections.
+export async function POST(request: NextRequest) {
+  if (!(await hasSession())) {
+    return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+  }
 
-// Criação de categoria nova — só o nome é obrigatório; o slug é gerado
-// automaticamente a partir dele em src/lib/categories.ts.
-export const categoryCreateSchema = z.object({
-  name: z.string().min(1, 'Informe um nome').max(80),
-  displayOrder: z.number().int().min(0).max(999).optional(),
-});
+  const body = await request.json().catch(() => null);
+  const parsed = categoryCreateSchema.safeParse(body);
 
-export type CategoryCreateInput = z.infer<typeof categoryCreateSchema>;
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message || 'Dados inválidos.', issues: parsed.error.issues },
+      { status: 400 }
+    );
+  }
+
+  const result = await createCategory(parsed.data);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  return NextResponse.json({ category: result.category }, { status: 201 });
+}
