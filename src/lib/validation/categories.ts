@@ -1,33 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { hasSession } from '@/lib/auth';
-import { updateCategory } from '@/lib/categories';
-import { categoryUpdateSchema } from '@/lib/validation/categories';
+import { z } from 'zod';
 
-// PATCH /api/categories/[id] — atualiza nome, ordem ou status
-// (ativa/inativa) de uma categoria. Protegida por hasSession(), mesmo guard
-// usado por /api/products, /api/settings e /api/collections. Slug nunca é
-// editável por aqui (ver src/lib/categories.ts).
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasSession())) {
-    return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
-  }
+// Atualização de categoria existente — slug NUNCA faz parte daqui (ver
+// comentário em src/lib/categories.ts sobre por que ele é fixo).
+export const categoryUpdateSchema = z
+  .object({
+    name: z.string().min(1, 'Informe um nome').max(80).optional(),
+    displayOrder: z.number().int().min(0).max(999).optional(),
+    active: z.boolean().optional(),
+  })
+  .partial();
 
-  const { id } = params;
-  const body = await request.json().catch(() => null);
-  const parsed = categoryUpdateSchema.safeParse(body);
+export type CategoryUpdateInput = z.infer<typeof categoryUpdateSchema>;
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message || 'Dados inválidos.', issues: parsed.error.issues },
-      { status: 400 }
-    );
-  }
+// Criação de categoria nova — só o nome é obrigatório; o slug é gerado
+// automaticamente a partir dele em src/lib/categories.ts.
+export const categoryCreateSchema = z.object({
+  name: z.string().min(1, 'Informe um nome').max(80),
+  displayOrder: z.number().int().min(0).max(999).optional(),
+});
 
-  const result = await updateCategory(id, parsed.data);
-
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 500 });
-  }
-
-  return NextResponse.json({ category: result.category });
-}
+export type CategoryCreateInput = z.infer<typeof categoryCreateSchema>;
