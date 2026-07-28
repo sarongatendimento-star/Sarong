@@ -4,6 +4,9 @@ import { getProductByIdAdmin } from '@/lib/products';
 import { getAllCategories } from '@/lib/categories';
 import { getAllCollections } from '@/lib/collections';
 
+// Sem cache: painel administrativo precisa refletir o banco em tempo real.
+export const revalidate = 0;
+
 export default async function EditarProdutoPage({ params }: { params: { id: string } }) {
   const [product, categories, collections] = await Promise.all([
     getProductByIdAdmin(params.id),
