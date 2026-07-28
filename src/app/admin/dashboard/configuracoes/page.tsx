@@ -1,6 +1,9 @@
 import { getSiteSettings } from '@/lib/site-settings';
 import SettingsForm from '@/components/admin/SettingsForm';
 
+// Sem cache: painel administrativo precisa refletir o banco em tempo real.
+export const revalidate = 0;
+
 export default async function ConfiguracoesPage() {
   const settings = await getSiteSettings();
 
