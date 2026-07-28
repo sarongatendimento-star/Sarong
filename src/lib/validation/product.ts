@@ -29,7 +29,11 @@ const productBaseSchema = z.object({
   collectionSlug: z.string().optional(),
   tags: z.array(productTagSchema).optional().default([]),
   images: z.array(z.string().url('URL de imagem inválida')).optional().default([]),
-  mercadoLivreUrl: z.string().url('Link do Mercado Livre inválido'),
+  mercadoLivreUrl: z
+    .string()
+    .url('Link do Mercado Livre inválido')
+    .optional()
+    .or(z.literal('')),
   featured: z.boolean().optional().default(false),
   active: z.boolean().optional().default(true),
   stock: z.number().int().nonnegative().optional(),
