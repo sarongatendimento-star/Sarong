@@ -221,14 +221,13 @@ export default function ProductForm({ mode, product, categories, collections }: 
         </div>
 
         <div className="md:col-span-2">
-          <label className={labelClass}>Link do Mercado Livre</label>
+          <label className={labelClass}>Link do Mercado Livre (opcional)</label>
           <input
-            required
             type="url"
             value={form.mercadoLivreUrl}
             onChange={(e) => setForm((f) => ({ ...f, mercadoLivreUrl: e.target.value }))}
             className={inputClass}
-            placeholder="https://www.mercadolivre.com.br/..."
+            placeholder="https://www.mercadolivre.com.br/... — deixe em branco se ainda não tiver o anúncio"
           />
         </div>
 
