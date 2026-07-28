@@ -52,13 +52,15 @@ export function buildProductJsonLd(product: Product) {
     description: product.description,
     image: product.images,
     sku: product.sku || product.id,
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'BRL',
-      price: product.price.toFixed(2),
-      availability: 'https://schema.org/InStock',
-      url: product.mercadoLivreUrl,
-    },
+    ...(product.mercadoLivreUrl && {
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'BRL',
+        price: product.price.toFixed(2),
+        availability: 'https://schema.org/InStock',
+        url: product.mercadoLivreUrl,
+      },
+    }),
   };
 }
 
