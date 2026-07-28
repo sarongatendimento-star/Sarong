@@ -4,6 +4,11 @@ import { hasSession } from '@/lib/auth';
 import { getProductStats, getAllProductsAdmin } from '@/lib/products';
 import { getAllCategories } from '@/lib/categories';
 import { getAllCollections } from '@/lib/collections';
+
+// Sem cache: é o painel administrativo, precisa refletir o banco em tempo
+// real (o problema anterior era essa página ficar "congelada" na versão de
+// um deploy antigo, mostrando produtos já excluídos e números errados).
+export const revalidate = 0;
 import { formatPrice } from '@/lib/format';
 import DashboardStatCard from '@/components/admin/DashboardStatCard';
 
