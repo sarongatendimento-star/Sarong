@@ -98,18 +98,26 @@ export default async function ProductPage({ params }: { params: { slug: string }
               </ul>
             )}
 
-            <a
-              href={product.mercadoLivreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-10 inline-flex w-full items-center justify-center gap-2 bg-sarong-black px-8 py-4 text-xs uppercase tracking-widest2 text-sarong-off transition-colors duration-300 hover:bg-sarong-red md:w-auto"
-            >
-              Comprar no Mercado Livre
-              <ArrowUpRight size={16} />
-            </a>
-            <p className="mt-3 text-[11px] text-sarong-black/40">
-              Você será redirecionado ao Mercado Livre para concluir a compra com segurança.
-            </p>
+            {product.mercadoLivreUrl ? (
+              <>
+                <a
+                  href={product.mercadoLivreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-10 inline-flex w-full items-center justify-center gap-2 bg-sarong-black px-8 py-4 text-xs uppercase tracking-widest2 text-sarong-off transition-colors duration-300 hover:bg-sarong-red md:w-auto"
+                >
+                  Comprar no Mercado Livre
+                  <ArrowUpRight size={16} />
+                </a>
+                <p className="mt-3 text-[11px] text-sarong-black/40">
+                  Você será redirecionado ao Mercado Livre para concluir a compra com segurança.
+                </p>
+              </>
+            ) : (
+              <div className="mt-10 inline-flex w-full items-center justify-center gap-2 border border-sarong-black/20 px-8 py-4 text-xs uppercase tracking-widest2 text-sarong-black/40 md:w-auto">
+                Em breve disponível para compra
+              </div>
+            )}
           </div>
         </Container>
       </main>
