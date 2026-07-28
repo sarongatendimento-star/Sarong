@@ -51,7 +51,7 @@ interface ProductRow {
   price: number;
   old_price: number | null;
   images: string[] | null;
-  mercado_livre_url: string;
+  mercado_livre_url: string | null;
   featured: boolean;
   is_new: boolean;
   is_promo: boolean;
@@ -99,7 +99,7 @@ function mapRowToProduct(row: ProductRow): Product {
     categoryName: row.categories?.name,
     tags,
     images: row.images || [],
-    mercadoLivreUrl: row.mercado_livre_url,
+    mercadoLivreUrl: row.mercado_livre_url ?? undefined,
     featured: row.featured,
     stock: row.stock ?? undefined,
     sku: row.sku ?? undefined,
@@ -368,7 +368,7 @@ export async function createProduct(product: Product): Promise<Product> {
       category_id: categoryId,
       collection_id: collectionId,
       images: product.images,
-      mercado_livre_url: product.mercadoLivreUrl,
+      mercado_livre_url: product.mercadoLivreUrl || null,
       featured: product.featured,
       is_new: product.tags.includes('novo'),
       is_promo: product.tags.includes('promocao'),
@@ -420,7 +420,7 @@ export async function updateProduct(
   if (patch.price !== undefined) update.price = patch.price;
   if (patch.oldPrice !== undefined) update.old_price = patch.oldPrice;
   if (patch.images !== undefined) update.images = patch.images;
-  if (patch.mercadoLivreUrl !== undefined) update.mercado_livre_url = patch.mercadoLivreUrl;
+  if (patch.mercadoLivreUrl !== undefined) update.mercado_livre_url = patch.mercadoLivreUrl || null;
   if (patch.featured !== undefined) update.featured = patch.featured;
   if (patch.active !== undefined) update.active = patch.active;
   if (patch.stock !== undefined) update.stock = patch.stock;
