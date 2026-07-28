@@ -56,6 +56,25 @@ export default function ProductForm({ mode, product, categories, collections }: 
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Campos de preço como texto — o navegador brasileiro digita vírgula
+  // ("179,90"), mas um <input type="number"> só aceita ponto e descarta o
+  // valor silenciosamente nesse caso (é o que causava preço salvo como 0).
+  // Guardamos o texto exatamente como digitado e só convertemos para número
+  // aqui, aceitando os dois separadores.
+  const [priceText, setPriceText] = useState(
+    product?.price !== undefined ? String(product.price).replace('.', ',') : ''
+  );
+  const [oldPriceText, setOldPriceText] = useState(
+    product?.oldPrice !== undefined ? String(product.oldPrice).replace('.', ',') : ''
+  );
+
+  function parseMoneyInput(raw: string): number | undefined {
+    const normalized = raw.trim().replace(',', '.');
+    if (!normalized) return undefined;
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? undefined : parsed;
+  }
+
   function toggleTag(tag: ProductTag) {
     setForm((f) => ({
       ...f,
@@ -170,24 +189,28 @@ export default function ProductForm({ mode, product, categories, collections }: 
           <label className={labelClass}>Preço (R$)</label>
           <input
             required
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.price}
-            onChange={(e) => setForm((f) => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
+            type="text"
+            inputMode="decimal"
+            value={priceText}
+            onChange={(e) => {
+              setPriceText(e.target.value);
+              setForm((f) => ({ ...f, price: parseMoneyInput(e.target.value) ?? 0 }));
+            }}
+            placeholder="0,00"
             className={inputClass}
           />
         </div>
         <div>
           <label className={labelClass}>Preço promocional (opcional)</label>
           <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.oldPrice ?? ''}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, oldPrice: e.target.value ? parseFloat(e.target.value) : undefined }))
-            }
+            type="text"
+            inputMode="decimal"
+            value={oldPriceText}
+            onChange={(e) => {
+              setOldPriceText(e.target.value);
+              setForm((f) => ({ ...f, oldPrice: parseMoneyInput(e.target.value) }));
+            }}
+            placeholder="0,00"
             className={inputClass}
           />
         </div>
