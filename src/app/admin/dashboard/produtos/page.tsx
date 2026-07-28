@@ -5,6 +5,9 @@ import { formatPrice } from '@/lib/format';
 import Pagination from '@/components/ui/Pagination';
 import DeleteProductButton from '@/components/admin/DeleteProductButton';
 
+// Sem cache: painel administrativo precisa refletir o banco em tempo real.
+export const revalidate = 0;
+
 const PAGE_SIZE = 10;
 
 // Lista de produtos do admin — Server Component simples (sem loading state
