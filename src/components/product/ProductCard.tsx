@@ -53,15 +53,21 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         </div>
       </div>
 
-      <a
-        href={product.mercadoLivreUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-4 flex items-center justify-between border-t border-sarong-black/10 pt-3 text-[11px] uppercase tracking-widest2 text-sarong-black transition-colors duration-300 hover:text-sarong-red"
-      >
-        Comprar no Mercado Livre
-        <ArrowUpRight size={14} />
-      </a>
+      {product.mercadoLivreUrl ? (
+        <a
+          href={product.mercadoLivreUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex items-center justify-between border-t border-sarong-black/10 pt-3 text-[11px] uppercase tracking-widest2 text-sarong-black transition-colors duration-300 hover:text-sarong-red"
+        >
+          Comprar no Mercado Livre
+          <ArrowUpRight size={14} />
+        </a>
+      ) : (
+        <div className="mt-4 border-t border-sarong-black/10 pt-3 text-[11px] uppercase tracking-widest2 text-sarong-black/40">
+          Em breve no Mercado Livre
+        </div>
+      )}
     </motion.div>
   );
 }
