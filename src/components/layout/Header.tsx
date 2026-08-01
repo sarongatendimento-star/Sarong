@@ -10,6 +10,7 @@ import type { Category } from '@/types/product';
 interface HeaderProps {
   categories: Category[];
   logoText?: string;
+  transparentAtTop?: boolean;
 }
 
 // Header fixo, transparente sobre o hero e solido ao rolar a pagina —
@@ -22,15 +23,24 @@ interface HeaderProps {
 //
 // V1.3 (modo Preview): `logoText` vem de src/lib/site-settings.ts, editável
 // em /admin/dashboard/configuracoes.
-export default function Header({ categories, logoText = 'SARONG' }: HeaderProps) {
+//
+// `transparentAtTop`: só a home tem uma foto grande (hero) atrás do cabeçalho
+// no topo da página, então só ela deve receber `transparentAtTop` (o
+// cabeçalho começa transparente/claro e vira sólido ao rolar). Nas demais
+// páginas (produtos, produto individual, privacidade), sem hero atrás, o
+// cabeçalho é sempre sólido desde o início — senão o texto claro fica sem
+// contraste nenhum sobre o fundo claro da página.
+export default function Header({ categories, logoText = 'SARONG', transparentAtTop = false }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const solid = !transparentAtTop || scrolled || open;
 
   useEffect(() => {
+    if (!transparentAtTop) return;
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [transparentAtTop]);
 
   const links = [
     ...categories.map((cat) => ({
@@ -44,7 +54,7 @@ export default function Header({ categories, logoText = 'SARONG' }: HeaderProps)
     <header
       className={clsx(
         'fixed inset-x-0 top-0 z-50 transition-colors duration-500 ease-editorial',
-        scrolled || open ? 'bg-sarong-off/95 backdrop-blur-sm shadow-[0_1px_0_0_rgba(0,0,0,0.06)]' : 'bg-transparent'
+        solid ? 'bg-sarong-off/95 backdrop-blur-sm shadow-[0_1px_0_0_rgba(0,0,0,0.06)]' : 'bg-transparent'
       )}
     >
       <div className="mx-auto flex max-w-content items-center justify-between px-6 py-5 md:px-10 lg:px-16">
@@ -52,7 +62,7 @@ export default function Header({ categories, logoText = 'SARONG' }: HeaderProps)
           href="/"
           className={clsx(
             'font-sans text-xl tracking-widest2 transition-colors duration-500',
-            scrolled || open ? 'text-sarong-black' : 'text-sarong-off'
+            solid ? 'text-sarong-black' : 'text-sarong-off'
           )}
         >
           {logoText}
@@ -65,7 +75,7 @@ export default function Header({ categories, logoText = 'SARONG' }: HeaderProps)
               href={link.href}
               className={clsx(
                 'text-xs uppercase tracking-widest2 transition-colors duration-500 hover:opacity-60',
-                scrolled ? 'text-sarong-black' : 'text-sarong-off'
+                solid ? 'text-sarong-black' : 'text-sarong-off'
               )}
             >
               {link.label}
@@ -76,7 +86,7 @@ export default function Header({ categories, logoText = 'SARONG' }: HeaderProps)
         <button
           aria-label={open ? 'Fechar menu' : 'Abrir menu'}
           onClick={() => setOpen((v) => !v)}
-          className={clsx('md:hidden', scrolled || open ? 'text-sarong-black' : 'text-sarong-off')}
+          className={clsx('md:hidden', solid ? 'text-sarong-black' : 'text-sarong-off')}
         >
           {open ? <X size={22} /> : <Menu size={22} />}
         </button>
