@@ -21,7 +21,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Header categories={categories} logoText={settings.logoText} />
+      <Header categories={categories} logoText={settings.logoText} transparentAtTop />
       <main>
         <Hero
           eyebrow={settings.heroBanner.eyebrow}
