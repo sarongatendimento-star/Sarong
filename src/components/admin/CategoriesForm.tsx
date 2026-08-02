@@ -27,6 +27,7 @@ function CategoryCard({ category }: { category: Category }) {
   const [name, setName] = useState(category.name);
   const [displayOrder, setDisplayOrder] = useState(category.displayOrder);
   const [active, setActive] = useState(category.active);
+  const [comingSoon, setComingSoon] = useState(category.comingSoon);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -37,7 +38,7 @@ function CategoryCard({ category }: { category: Category }) {
     const res = await fetch(`/api/categories/${category.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, displayOrder, active }),
+      body: JSON.stringify({ name, displayOrder, active, comingSoon }),
     });
 
     setSaving(false);
@@ -62,6 +63,11 @@ function CategoryCard({ category }: { category: Category }) {
           Ativa (aparece no site)
         </label>
       </div>
+
+      <label className="mb-4 flex items-center gap-2 text-xs uppercase tracking-widest2 text-sarong-black/60">
+        <input type="checkbox" checked={comingSoon} onChange={(e) => setComingSoon(e.target.checked)} />
+        Em breve (aparece no menu, mas sem clique, com aviso "em breve")
+      </label>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_140px]">
         <div>
