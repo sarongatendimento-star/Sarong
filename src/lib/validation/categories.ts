@@ -5,6 +5,7 @@ import { z } from 'zod';
 export const categoryUpdateSchema = z
   .object({
     name: z.string().min(1, 'Informe um nome').max(80).optional(),
+    comingSoon: z.boolean().optional(),
     displayOrder: z.number().int().min(0).max(999).optional(),
     active: z.boolean().optional(),
   })
