@@ -30,6 +30,7 @@ function CollectionCard({ collection }: { collection: Collection }) {
   const [imageUrl, setImageUrl] = useState(collection.imageUrl ?? '');
   const [linkHref, setLinkHref] = useState(collection.linkHref ?? '');
   const [active, setActive] = useState(collection.active);
+  const [comingSoon, setComingSoon] = useState(collection.comingSoon);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -40,7 +41,7 @@ function CollectionCard({ collection }: { collection: Collection }) {
     const res = await fetch(`/api/collections/${collection.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, imageUrl, linkHref, active }),
+      body: JSON.stringify({ name, imageUrl, linkHref, active, comingSoon }),
     });
 
     setSaving(false);
@@ -63,6 +64,11 @@ function CollectionCard({ collection }: { collection: Collection }) {
           Ativa (aparece no site)
         </label>
       </div>
+
+      <label className="mb-4 flex items-center gap-2 text-xs uppercase tracking-widest2 text-sarong-black/60">
+        <input type="checkbox" checked={comingSoon} onChange={(e) => setComingSoon(e.target.checked)} />
+        Em breve (aparece desfocado no site, sem clique, com aviso "em breve")
+      </label>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
