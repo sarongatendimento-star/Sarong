@@ -32,11 +32,12 @@ interface CollectionRow {
   description: string | null;
   image_url: string | null;
   link_href: string | null;
+  coming_soon: boolean;
   display_order: number;
   active: boolean;
 }
 
-const COLLECTION_COLUMNS = 'id, name, slug, description, image_url, link_href, display_order, active';
+const COLLECTION_COLUMNS = 'id, name, slug, description, image_url, link_href, coming_soon, display_order, active';
 
 function mapRowToCollection(row: CollectionRow): Collection {
   return {
@@ -46,6 +47,7 @@ function mapRowToCollection(row: CollectionRow): Collection {
     description: row.description ?? undefined,
     imageUrl: row.image_url ?? undefined,
     linkHref: row.link_href ?? undefined,
+    comingSoon: row.coming_soon,
     displayOrder: row.display_order,
     active: row.active,
   };
@@ -84,6 +86,7 @@ export interface CollectionUpdateInput {
   name?: string;
   imageUrl?: string;
   linkHref?: string;
+  comingSoon?: boolean;
   active?: boolean;
 }
 
@@ -99,6 +102,7 @@ export async function updateCollection(
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.imageUrl !== undefined) row.image_url = patch.imageUrl;
   if (patch.linkHref !== undefined) row.link_href = patch.linkHref;
+  if (patch.comingSoon !== undefined) row.coming_soon = patch.comingSoon;
   if (patch.active !== undefined) row.active = patch.active;
 
   const { data, error } = await supabaseAdmin
