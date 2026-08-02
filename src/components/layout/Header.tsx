@@ -46,8 +46,9 @@ export default function Header({ categories, logoText = 'SARONG', transparentAtT
     ...categories.map((cat) => ({
       href: `/produtos?categoria=${cat.slug}`,
       label: cat.name,
+      comingSoon: cat.comingSoon,
     })),
-    { href: '/#sobre', label: 'Sobre' },
+    { href: '/#sobre', label: 'Sobre', comingSoon: false },
   ];
 
   return (
@@ -69,18 +70,31 @@ export default function Header({ categories, logoText = 'SARONG', transparentAtT
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={clsx(
-                'text-xs uppercase tracking-widest2 transition-colors duration-500 hover:opacity-60',
-                solid ? 'text-sarong-black' : 'text-sarong-off'
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) =>
+            link.comingSoon ? (
+              <span
+                key={link.href}
+                aria-disabled="true"
+                className={clsx(
+                  'cursor-not-allowed select-none text-xs uppercase tracking-widest2 transition-colors duration-500',
+                  solid ? 'text-sarong-black/35' : 'text-sarong-off/50'
+                )}
+              >
+                {link.label} <span className="normal-case">(em breve)</span>
+              </span>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={clsx(
+                  'text-xs uppercase tracking-widest2 transition-colors duration-500 hover:opacity-60',
+                  solid ? 'text-sarong-black' : 'text-sarong-off'
+                )}
+              >
+                {link.label}
+              </Link>
+            )
+          )}
         </nav>
 
         <button
@@ -99,16 +113,26 @@ export default function Header({ categories, logoText = 'SARONG', transparentAtT
           exit={{ opacity: 0, height: 0 }}
           className="flex flex-col gap-1 bg-sarong-off px-6 pb-6 md:hidden"
         >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="py-3 text-sm uppercase tracking-widest2 text-sarong-black border-b border-sarong-black/10"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) =>
+            link.comingSoon ? (
+              <span
+                key={link.href}
+                aria-disabled="true"
+                className="cursor-not-allowed select-none border-b border-sarong-black/10 py-3 text-sm uppercase tracking-widest2 text-sarong-black/35"
+              >
+                {link.label} <span className="normal-case">(em breve)</span>
+              </span>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="py-3 text-sm uppercase tracking-widest2 text-sarong-black border-b border-sarong-black/10"
+              >
+                {link.label}
+              </Link>
+            )
+          )}
         </motion.nav>
       )}
     </header>
