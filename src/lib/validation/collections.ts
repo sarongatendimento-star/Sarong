@@ -8,6 +8,7 @@ export const collectionUpdateSchema = z
     name: z.string().min(1, 'Informe um nome').max(80).optional(),
     imageUrl: z.string().min(1, 'Informe uma URL de imagem válida').optional(),
     linkHref: z.string().max(300).optional(),
+    comingSoon: z.boolean().optional(),
     active: z.boolean().optional(),
   })
   .partial();
