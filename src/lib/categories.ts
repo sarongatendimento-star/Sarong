@@ -37,11 +37,12 @@ interface CategoryRow {
   slug: string;
   description: string | null;
   image_url: string | null;
+  coming_soon: boolean;
   display_order: number;
   active: boolean;
 }
 
-const CATEGORY_COLUMNS = 'id, name, slug, description, image_url, display_order, active';
+const CATEGORY_COLUMNS = 'id, name, slug, description, image_url, coming_soon, display_order, active';
 
 function mapRowToCategory(row: CategoryRow): Category {
   return {
@@ -50,6 +51,7 @@ function mapRowToCategory(row: CategoryRow): Category {
     slug: row.slug,
     description: row.description ?? undefined,
     imageUrl: row.image_url ?? undefined,
+    comingSoon: row.coming_soon,
     displayOrder: row.display_order,
     active: row.active,
   };
@@ -96,6 +98,7 @@ export async function getAllCategoriesForAdmin(): Promise<Category[]> {
 
 export interface CategoryUpdateInput {
   name?: string;
+  comingSoon?: boolean;
   displayOrder?: number;
   active?: boolean;
 }
@@ -109,6 +112,7 @@ export async function updateCategory(id: string, patch: CategoryUpdateInput): Pr
 
   const row: Record<string, unknown> = {};
   if (patch.name !== undefined) row.name = patch.name;
+  if (patch.comingSoon !== undefined) row.coming_soon = patch.comingSoon;
   if (patch.displayOrder !== undefined) row.display_order = patch.displayOrder;
   if (patch.active !== undefined) row.active = patch.active;
 
