@@ -49,6 +49,7 @@ export interface Category {
   slug: string;
   description?: string;
   imageUrl?: string;
+  comingSoon: boolean;
   displayOrder: number;
   active: boolean;
 }
@@ -61,6 +62,7 @@ export interface Collection {
   description?: string;
   imageUrl?: string;
   linkHref?: string;
+  comingSoon: boolean;
   displayOrder: number;
   active: boolean;
 }
