@@ -25,7 +25,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
             src={product.images[0]}
             alt={product.name}
             loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-700 ease-editorial group-hover:scale-105"
+            className="h-full w-full object-contain transition-transform duration-700 ease-editorial group-hover:scale-105"
           />
           {product.tags.length > 0 && (
             <div className="absolute left-3 top-3 flex flex-col gap-1.5">
