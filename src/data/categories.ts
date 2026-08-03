@@ -19,6 +19,7 @@ export const LOCAL_CATEGORIES: Category[] = [
     description: 'Vestidos leves e editoriais para o dia a dia e a praia.',
     displayOrder: 1,
     active: true,
+    comingSoon: false,
   },
   {
     id: 'cat-cangas',
@@ -27,6 +28,7 @@ export const LOCAL_CATEGORIES: Category[] = [
     description: 'Cangas estampadas em algodão e viscose.',
     displayOrder: 2,
     active: true,
+    comingSoon: false,
   },
   {
     id: 'cat-moda-praia',
@@ -35,6 +37,7 @@ export const LOCAL_CATEGORIES: Category[] = [
     description: 'Biquínis, maiôs e saídas de praia.',
     displayOrder: 3,
     active: true,
+    comingSoon: false,
   },
   {
     id: 'cat-lancamentos',
@@ -43,5 +46,6 @@ export const LOCAL_CATEGORIES: Category[] = [
     description: 'As peças mais recentes da coleção.',
     displayOrder: 4,
     active: true,
+    comingSoon: false,
   },
 ];
