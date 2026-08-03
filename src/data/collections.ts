@@ -15,5 +15,6 @@ export const LOCAL_COLLECTIONS: Collection[] = [
     description: 'Peças selecionadas para os dias mais quentes do ano.',
     displayOrder: 1,
     active: true,
+    comingSoon: false,
   },
 ];
