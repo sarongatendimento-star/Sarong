@@ -34,6 +34,11 @@ const productBaseSchema = z.object({
     .url('Link do Mercado Livre inválido')
     .optional()
     .or(z.literal('')),
+  shopeeUrl: z
+    .string()
+    .url('Link da Shopee inválido')
+    .optional()
+    .or(z.literal('')),
   featured: z.boolean().optional().default(false),
   active: z.boolean().optional().default(true),
   stock: z.number().int().nonnegative().optional(),
