@@ -25,6 +25,7 @@ export interface Product {
   tags: ProductTag[];
   images: string[];
   mercadoLivreUrl?: string;
+  shopeeUrl?: string;
   featured: boolean;
   // Preparado para o futuro: quando o site tiver carrinho proprio,
   // estes campos ja existem e nao exigem migracao de schema.
