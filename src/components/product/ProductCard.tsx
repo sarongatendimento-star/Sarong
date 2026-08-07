@@ -53,19 +53,40 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         </div>
       </div>
 
-      {product.mercadoLivreUrl ? (
+      {product.mercadoLivreUrl && product.shopeeUrl ? (
+        <div className="mt-4 grid grid-cols-2 border-t border-sarong-black/10 pt-3">
+          <a
+            href={product.mercadoLivreUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[11px] uppercase tracking-widest2 text-sarong-black transition-colors duration-300 hover:text-sarong-red"
+          >
+            Mercado Livre
+            <ArrowUpRight size={13} />
+          </a>
+          <a
+            href={product.shopeeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-end gap-1 text-[11px] uppercase tracking-widest2 text-sarong-black transition-colors duration-300 hover:text-sarong-red"
+          >
+            Shopee
+            <ArrowUpRight size={13} />
+          </a>
+        </div>
+      ) : product.mercadoLivreUrl || product.shopeeUrl ? (
         <a
-          href={product.mercadoLivreUrl}
+          href={product.mercadoLivreUrl || product.shopeeUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 flex items-center justify-between border-t border-sarong-black/10 pt-3 text-[11px] uppercase tracking-widest2 text-sarong-black transition-colors duration-300 hover:text-sarong-red"
         >
-          Comprar no Mercado Livre
+          {product.mercadoLivreUrl ? 'Comprar no Mercado Livre' : 'Comprar na Shopee'}
           <ArrowUpRight size={14} />
         </a>
       ) : (
         <div className="mt-4 border-t border-sarong-black/10 pt-3 text-[11px] uppercase tracking-widest2 text-sarong-black/40">
-          Em breve no Mercado Livre
+          Em breve disponível para compra
         </div>
       )}
     </motion.div>
