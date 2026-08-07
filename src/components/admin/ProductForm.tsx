@@ -49,6 +49,7 @@ export default function ProductForm({ mode, product, categories, collections }: 
     collectionSlug: product?.collectionSlug ?? '',
     images: product?.images ?? ([] as string[]),
     mercadoLivreUrl: product?.mercadoLivreUrl ?? '',
+    shopeeUrl: product?.shopeeUrl ?? '',
     featured: product?.featured ?? false,
     tags: product?.tags ?? ([] as ProductTag[]),
     active: product?.active ?? true,
@@ -251,6 +252,17 @@ export default function ProductForm({ mode, product, categories, collections }: 
             onChange={(e) => setForm((f) => ({ ...f, mercadoLivreUrl: e.target.value }))}
             className={inputClass}
             placeholder="https://www.mercadolivre.com.br/... — deixe em branco se ainda não tiver o anúncio"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className={labelClass}>Link da Shopee (opcional)</label>
+          <input
+            type="url"
+            value={form.shopeeUrl}
+            onChange={(e) => setForm((f) => ({ ...f, shopeeUrl: e.target.value }))}
+            className={inputClass}
+            placeholder="https://shopee.com.br/... — deixe em branco se ainda não tiver o anúncio"
           />
         </div>
 
