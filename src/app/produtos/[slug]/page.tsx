@@ -98,19 +98,34 @@ export default async function ProductPage({ params }: { params: { slug: string }
               </ul>
             )}
 
-            {product.mercadoLivreUrl ? (
+            {product.mercadoLivreUrl || product.shopeeUrl ? (
               <>
-                <a
-                  href={product.mercadoLivreUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-10 inline-flex w-full items-center justify-center gap-2 bg-sarong-black px-8 py-4 text-xs uppercase tracking-widest2 text-sarong-off transition-colors duration-300 hover:bg-sarong-red md:w-auto"
-                >
-                  Comprar no Mercado Livre
-                  <ArrowUpRight size={16} />
-                </a>
+                <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+                  {product.mercadoLivreUrl && (
+                    <a
+                      href={product.mercadoLivreUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex flex-1 items-center justify-center gap-2 bg-sarong-black px-8 py-4 text-xs uppercase tracking-widest2 text-sarong-off transition-colors duration-300 hover:bg-sarong-red sm:flex-none"
+                    >
+                      Comprar no Mercado Livre
+                      <ArrowUpRight size={16} />
+                    </a>
+                  )}
+                  {product.shopeeUrl && (
+                    <a
+                      href={product.shopeeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex flex-1 items-center justify-center gap-2 border border-sarong-black px-8 py-4 text-xs uppercase tracking-widest2 text-sarong-black transition-colors duration-300 hover:border-sarong-red hover:text-sarong-red sm:flex-none"
+                    >
+                      Comprar na Shopee
+                      <ArrowUpRight size={16} />
+                    </a>
+                  )}
+                </div>
                 <p className="mt-3 text-[11px] text-sarong-black/40">
-                  Você será redirecionado ao Mercado Livre para concluir a compra com segurança.
+                  Você será redirecionado para concluir a compra com segurança.
                 </p>
               </>
             ) : (
