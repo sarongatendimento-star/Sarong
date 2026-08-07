@@ -52,6 +52,7 @@ interface ProductRow {
   old_price: number | null;
   images: string[] | null;
   mercado_livre_url: string | null;
+  shopee_url: string | null;
   featured: boolean;
   is_new: boolean;
   is_promo: boolean;
@@ -71,7 +72,7 @@ interface ProductRow {
 function buildProductSelect(innerJoinCategory: boolean) {
   return `
     id, slug, name, short_description, description, features, price, old_price,
-    images, mercado_livre_url, featured, is_new, is_promo, is_bestseller, active,
+    images, mercado_livre_url, shopee_url, featured, is_new, is_promo, is_bestseller, active,
     stock, sku, display_order, created_at,
     categories${innerJoinCategory ? '!inner' : ''} ( id, slug, name ),
     collections ( id, slug, name )
@@ -100,6 +101,7 @@ function mapRowToProduct(row: ProductRow): Product {
     tags,
     images: row.images || [],
     mercadoLivreUrl: row.mercado_livre_url ?? undefined,
+    shopeeUrl: row.shopee_url ?? undefined,
     featured: row.featured,
     stock: row.stock ?? undefined,
     sku: row.sku ?? undefined,
@@ -369,6 +371,7 @@ export async function createProduct(product: Product): Promise<Product> {
       collection_id: collectionId,
       images: product.images,
       mercado_livre_url: product.mercadoLivreUrl || null,
+      shopee_url: product.shopeeUrl || null,
       featured: product.featured,
       is_new: product.tags.includes('novo'),
       is_promo: product.tags.includes('promocao'),
@@ -421,6 +424,7 @@ export async function updateProduct(
   if (patch.oldPrice !== undefined) update.old_price = patch.oldPrice;
   if (patch.images !== undefined) update.images = patch.images;
   if (patch.mercadoLivreUrl !== undefined) update.mercado_livre_url = patch.mercadoLivreUrl || null;
+  if (patch.shopeeUrl !== undefined) update.shopee_url = patch.shopeeUrl || null;
   if (patch.featured !== undefined) update.featured = patch.featured;
   if (patch.active !== undefined) update.active = patch.active;
   if (patch.stock !== undefined) update.stock = patch.stock;
