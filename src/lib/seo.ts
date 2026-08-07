@@ -45,6 +45,23 @@ export function buildMetadata(params: {
 
 // Gera o schema.org Product (rich snippet de preco/disponibilidade no Google)
 export function buildProductJsonLd(product: Product) {
+  const offers = [
+    product.mercadoLivreUrl && {
+      '@type': 'Offer',
+      priceCurrency: 'BRL',
+      price: product.price.toFixed(2),
+      availability: 'https://schema.org/InStock',
+      url: product.mercadoLivreUrl,
+    },
+    product.shopeeUrl && {
+      '@type': 'Offer',
+      priceCurrency: 'BRL',
+      price: product.price.toFixed(2),
+      availability: 'https://schema.org/InStock',
+      url: product.shopeeUrl,
+    },
+  ].filter(Boolean);
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -52,15 +69,7 @@ export function buildProductJsonLd(product: Product) {
     description: product.description,
     image: product.images,
     sku: product.sku || product.id,
-    ...(product.mercadoLivreUrl && {
-      offers: {
-        '@type': 'Offer',
-        priceCurrency: 'BRL',
-        price: product.price.toFixed(2),
-        availability: 'https://schema.org/InStock',
-        url: product.mercadoLivreUrl,
-      },
-    }),
+    ...(offers.length > 0 && { offers }),
   };
 }
 
