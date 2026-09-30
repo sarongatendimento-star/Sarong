@@ -10,7 +10,15 @@ import { formatPrice } from '@/lib/format';
 // Card de produto: a foto é a protagonista, o texto é minimo.
 // O clique no card leva a pagina de produto; o botao "Comprar" vai direto
 // para o Mercado Livre em nova aba, sem passar pela pagina de produto.
+//
+// Se a categoria OU a coleção do produto ainda estiver marcada como
+// "em breve" (comingSoon), os botões de compra ficam escondidos e aparece
+// o aviso "Em breve disponível para compra" — mesmo que o produto já tenha
+// link de Mercado Livre/Shopee cadastrado. Isso mantém a página "Todos os
+// produtos" consistente com a Home, onde essas categorias/coleções aparecem
+// bloqueadas.
 export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
+  const comingSoon = product.categoryComingSoon || product.collectionComingSoon;
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -53,7 +61,11 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         </div>
       </div>
 
-      {product.mercadoLivreUrl && product.shopeeUrl ? (
+      {comingSoon ? (
+        <div className="mt-4 border-t border-sarong-black/10 pt-3 text-[11px] uppercase tracking-widest2 text-sarong-black/40">
+          Em breve disponível para compra
+        </div>
+      ) : product.mercadoLivreUrl && product.shopeeUrl ? (
         <div className="mt-4 grid grid-cols-2 border-t border-sarong-black/10 pt-3">
           <a
             href={product.mercadoLivreUrl}
