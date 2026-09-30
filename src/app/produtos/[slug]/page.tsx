@@ -47,6 +47,10 @@ export default async function ProductPage({ params }: { params: { slug: string }
   const product = await getProductBySlug(params.slug);
   if (!product) notFound();
 
+  // Mesma regra do ProductCard: produto de categoria/coleção ainda "em
+  // breve" nunca mostra botão de compra, mesmo com link já cadastrado.
+  const comingSoon = product.categoryComingSoon || product.collectionComingSoon;
+
   const categories = await getAllCategories();
   const settings = await getSiteSettings();
   const jsonLd = buildProductJsonLd(product);
@@ -98,7 +102,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               </ul>
             )}
 
-            {product.mercadoLivreUrl || product.shopeeUrl ? (
+            {!comingSoon && (product.mercadoLivreUrl || product.shopeeUrl) ? (
               <>
                 <div className="mt-10 flex flex-col gap-3 sm:flex-row">
                   {product.mercadoLivreUrl && (
