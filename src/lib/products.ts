@@ -179,12 +179,20 @@ export async function getFeaturedProducts(): Promise<Product[]> {
     return sortLocalProducts(getLocalProducts().filter((p) => p.active && p.featured)).map(withComingSoon);
   }
 
+  // Faltava o desempate por "created_at" que as outras listagens já têm
+  // (getAllProducts, getProductsByCategory) — sem ele, produtos com o mesmo
+  // "Ordem de exibição" (o padrão é 0 para todos) saíam na ordem "natural"
+  // do banco, que normalmente é a de criação, então um destaque novo
+  // aparecia por ÚLTIMO em vez de primeiro. Com o desempate por mais
+  // recente, um produto recém-marcado como destaque já aparece em primeiro
+  // — a menos que você defina um "Ordem de exibição" manual no admin.
   const { data, error } = await supabasePublic
     .from('products')
     .select(PRODUCT_SELECT)
     .eq('active', true)
     .eq('featured', true)
-    .order('display_order', { ascending: true });
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false });
 
   if (error) throw new Error(`Erro ao buscar produtos em destaque: ${error.message}`);
   return (data as unknown as ProductRow[]).map(mapRowToProduct);
