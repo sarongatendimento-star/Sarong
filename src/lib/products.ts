@@ -62,20 +62,27 @@ interface ProductRow {
   sku: string | null;
   display_order: number;
   created_at: string;
-  categories: { id: string; slug: string; name: string } | null;
-  collections: { id: string; slug: string; name: string } | null;
+  categories: { id: string; slug: string; name: string; coming_soon: boolean } | null;
+  collections: { id: string; slug: string; name: string; coming_soon: boolean } | null;
 }
 
 // `!inner` é necessário sempre que o filtro (.eq) recai sobre uma coluna da
 // tabela relacionada (categories.slug) — sem isso o PostgREST ignora o filtro
 // silenciosamente e devolve produtos de todas as categorias.
+//
+// `coming_soon` entra no select de categories/collections para o ProductCard
+// poder esconder os botões de compra de produtos que pertencem a uma
+// categoria/coleção ainda marcada como "em breve" — antes esse dado nem
+// chegava ao componente, então um produto com link cadastrado aparecia
+// vendável mesmo estando numa categoria que o resto do site trata como não
+// lançada.
 function buildProductSelect(innerJoinCategory: boolean) {
   return `
     id, slug, name, short_description, description, features, price, old_price,
     images, mercado_livre_url, shopee_url, featured, is_new, is_promo, is_bestseller, active,
     stock, sku, display_order, created_at,
-    categories${innerJoinCategory ? '!inner' : ''} ( id, slug, name ),
-    collections ( id, slug, name )
+    categories${innerJoinCategory ? '!inner' : ''} ( id, slug, name, coming_soon ),
+    collections ( id, slug, name, coming_soon )
   `;
 }
 
@@ -111,6 +118,8 @@ function mapRowToProduct(row: ProductRow): Product {
     collectionSlug: row.collections?.slug,
     collectionName: row.collections?.name,
     displayOrder: row.display_order,
+    categoryComingSoon: row.categories?.coming_soon ?? false,
+    collectionComingSoon: row.collections?.coming_soon ?? false,
   };
 }
 
@@ -119,6 +128,19 @@ function toPaginated<T>(items: T[], total: number, page: number, pageSize: numbe
 }
 
 // ---- Helpers do catálogo local (MODO PREVIEW) -------------------------------
+
+// Espelha, para o catálogo local, o mesmo `coming_soon` de categoria/coleção
+// que o Supabase já traz via join (ver buildProductSelect acima) — sem isso
+// o modo Preview nunca marcaria um produto como "em breve".
+function withComingSoon(product: Product): Product {
+  const category = LOCAL_CATEGORIES.find((c) => c.slug === product.category);
+  const collection = LOCAL_COLLECTIONS.find((c) => c.slug === product.collectionSlug);
+  return {
+    ...product,
+    categoryComingSoon: category?.comingSoon ?? false,
+    collectionComingSoon: collection?.comingSoon ?? false,
+  };
+}
 
 function sortLocalProducts(products: Product[]): Product[] {
   return [...products].sort((a, b) => {
@@ -138,7 +160,7 @@ function paginateLocal<T>(items: T[], page: number, pageSize: number): Paginated
 
 export async function getAllProducts(): Promise<Product[]> {
   if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
-    return sortLocalProducts(getLocalProducts().filter((p) => p.active));
+    return sortLocalProducts(getLocalProducts().filter((p) => p.active)).map(withComingSoon);
   }
 
   const { data, error } = await supabasePublic
@@ -154,7 +176,7 @@ export async function getAllProducts(): Promise<Product[]> {
 
 export async function getFeaturedProducts(): Promise<Product[]> {
   if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
-    return sortLocalProducts(getLocalProducts().filter((p) => p.active && p.featured));
+    return sortLocalProducts(getLocalProducts().filter((p) => p.active && p.featured)).map(withComingSoon);
   }
 
   const { data, error } = await supabasePublic
@@ -181,7 +203,7 @@ export async function getProductsByCategory(
     const filtered = getLocalProducts().filter(
       (p) => p.active && (category === 'todos' || p.category === category)
     );
-    return paginateLocal(sortLocalProducts(filtered), page, pageSize);
+    return paginateLocal(sortLocalProducts(filtered).map(withComingSoon), page, pageSize);
   }
 
   const from = (page - 1) * pageSize;
@@ -210,7 +232,8 @@ export async function getProductsByCategory(
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
   if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
-    return getLocalProducts().find((p) => p.active && p.slug === slug);
+    const product = getLocalProducts().find((p) => p.active && p.slug === slug);
+    return product ? withComingSoon(product) : undefined;
   }
 
   const { data, error } = await supabasePublic
