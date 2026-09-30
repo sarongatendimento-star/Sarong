@@ -40,6 +40,13 @@ export interface Product {
   collectionSlug?: string;
   collectionName?: string;
   displayOrder?: number;      // ordem manual de exibição (usada em telas futuras)
+  // --- Campo novo: "em breve" da categoria/coleção do produto (join com
+  // `categories.coming_soon` / `collections.coming_soon`). Usado pelo
+  // ProductCard para esconder os botões de compra e mostrar "Em breve"
+  // mesmo que o produto já tenha link de Mercado Livre/Shopee cadastrado —
+  // evita vender peças de uma categoria/coleção ainda não lançada no site. ---
+  categoryComingSoon?: boolean;
+  collectionComingSoon?: boolean;
 }
 
 // Linha da tabela `categories` no Supabase — usada pelo CRUD da ETAPA 7 e,
