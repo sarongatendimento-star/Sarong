@@ -1,326 +1,496 @@
-'use client';
-
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import { Trash2 } from 'lucide-react';
-import type { Product, ProductTag, Category, Collection } from '@/types/product';
-import ImageGallery from './ImageGallery';
-
-interface ProductFormProps {
-  mode: 'create' | 'edit';
-  product?: Product;
-  categories: Category[];
-  collections: Collection[];
-}
-
-const TAGS: { value: ProductTag; label: string }[] = [
-  { value: 'novo', label: 'Novo' },
-  { value: 'promocao', label: 'Promoção' },
-  { value: 'mais-vendido', label: 'Mais vendido' },
-];
-
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
+import 'server-only';
+import { supabasePublic } from '@/lib/supabase/public';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { IS_SUPABASE_CONFIGURED, IS_SUPABASE_ADMIN_CONFIGURED } from '@/lib/supabase/config';
+import { getLocalProducts, saveLocalProducts } from '@/lib/local-products-store';
+import { LOCAL_CATEGORIES } from '@/data/categories';
+import { LOCAL_COLLECTIONS } from '@/data/collections';
+import type { Product, ProductCategory, ProductTag } from '@/types/product';
 
 // -----------------------------------------------------------------------------
-// Formulário único de produto (V1.2) — substitui os dois fluxos que existiam
-// antes (criação em formulário completo x edição em campos soltos na
-// tabela). As rotas src/app/admin/dashboard/produtos/novo/page.tsx e
-// .../[id]/page.tsx renderizam este MESMO componente, só trocando `mode` e
-// `product`. A validação continua nas rotas de API (Zod, V1.1) — este
-// componente só exibe a mensagem de erro que a API devolver.
+// Camada de acesso a dados dos produtos.
+//
+// V1.1: adiciona paginação a getProductsByCategory e getAllProductsAdmin, e
+// corrige um bug latente da ETAPA 1 (o filtro por categoria era feito em
+// JavaScript DEPOIS de já ter buscado os dados — hoje o filtro acontece de
+// fato no banco, via inner join, o que é necessário para o `count` da
+// paginação vir correto).
+//
+// getAllProducts() (sem paginação) foi mantida como está — é usada pelo
+// sitemap, que precisa de fato de todos os produtos, não de uma página.
+//
+// MODO PREVIEW: sem NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY
+// configuradas, todas as funções abaixo (leitura E escrita) operam sobre o
+// catálogo local editável de src/lib/local-products-store.ts, replicando em
+// memória o mesmo filtro/ordenação/paginação que o Supabase faria. O painel
+// administrativo (login local — ver src/lib/auth.ts) cria/edita/exclui
+// produtos de verdade nesse catálogo local.
 // -----------------------------------------------------------------------------
-export default function ProductForm({ mode, product, categories, collections }: ProductFormProps) {
-  const router = useRouter();
-  const [form, setForm] = useState({
-    name: product?.name ?? '',
-    slug: product?.slug ?? '',
-    shortDescription: product?.shortDescription ?? '',
-    description: product?.description ?? '',
-    price: product?.price ?? 0,
-    oldPrice: product?.oldPrice,
-    category: product?.category ?? categories[0]?.slug ?? '',
-    collectionSlug: product?.collectionSlug ?? '',
-    images: product?.images ?? ([] as string[]),
-    mercadoLivreUrl: product?.mercadoLivreUrl ?? '',
-    shopeeUrl: product?.shopeeUrl ?? '',
-    featured: product?.featured ?? false,
-    tags: product?.tags ?? ([] as ProductTag[]),
-    active: product?.active ?? true,
+
+export interface PaginationParams {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+// Formato retornado pelo Supabase (snake_case, com join de categoria/coleção)
+interface ProductRow {
+  id: string;
+  slug: string;
+  name: string;
+  short_description: string | null;
+  description: string | null;
+  features: string[] | null;
+  price: number;
+  old_price: number | null;
+  images: string[] | null;
+  mercado_livre_url: string | null;
+  shopee_url: string | null;
+  featured: boolean;
+  is_new: boolean;
+  is_promo: boolean;
+  is_bestseller: boolean;
+  active: boolean;
+  stock: number | null;
+  sku: string | null;
+  display_order: number;
+  created_at: string;
+  categories: { id: string; slug: string; name: string; coming_soon: boolean } | null;
+  collections: { id: string; slug: string; name: string; coming_soon: boolean } | null;
+}
+
+// `!inner` é necessário sempre que o filtro (.eq) recai sobre uma coluna da
+// tabela relacionada (categories.slug) — sem isso o PostgREST ignora o filtro
+// silenciosamente e devolve produtos de todas as categorias.
+//
+// `coming_soon` entra no select de categories/collections para o ProductCard
+// poder esconder os botões de compra de produtos que pertencem a uma
+// categoria/coleção ainda marcada como "em breve" — antes esse dado nem
+// chegava ao componente, então um produto com link cadastrado aparecia
+// vendável mesmo estando numa categoria que o resto do site trata como não
+// lançada.
+function buildProductSelect(innerJoinCategory: boolean) {
+  return `
+    id, slug, name, short_description, description, features, price, old_price,
+    images, mercado_livre_url, shopee_url, featured, is_new, is_promo, is_bestseller, active,
+    stock, sku, display_order, created_at,
+    categories${innerJoinCategory ? '!inner' : ''} ( id, slug, name, coming_soon ),
+    collections ( id, slug, name, coming_soon )
+  `;
+}
+
+const PRODUCT_SELECT = buildProductSelect(false);
+
+function mapRowToProduct(row: ProductRow): Product {
+  const tags: ProductTag[] = [];
+  if (row.is_new) tags.push('novo');
+  if (row.is_promo) tags.push('promocao');
+  if (row.is_bestseller) tags.push('mais-vendido');
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    shortDescription: row.short_description || '',
+    description: row.description || '',
+    features: row.features || [],
+    price: Number(row.price),
+    oldPrice: row.old_price ? Number(row.old_price) : undefined,
+    category: row.categories?.slug || '',
+    categoryName: row.categories?.name,
+    tags,
+    images: row.images || [],
+    mercadoLivreUrl: row.mercado_livre_url ?? undefined,
+    shopeeUrl: row.shopee_url ?? undefined,
+    featured: row.featured,
+    stock: row.stock ?? undefined,
+    sku: row.sku ?? undefined,
+    active: row.active,
+    createdAt: row.created_at,
+    collectionId: row.collections?.id,
+    collectionSlug: row.collections?.slug,
+    collectionName: row.collections?.name,
+    displayOrder: row.display_order,
+    categoryComingSoon: row.categories?.coming_soon ?? false,
+    collectionComingSoon: row.collections?.coming_soon ?? false,
+  };
+}
+
+function toPaginated<T>(items: T[], total: number, page: number, pageSize: number): PaginatedResult<T> {
+  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+// ---- Helpers do catálogo local (MODO PREVIEW) -------------------------------
+
+// Espelha, para o catálogo local, o mesmo `coming_soon` de categoria/coleção
+// que o Supabase já traz via join (ver buildProductSelect acima) — sem isso
+// o modo Preview nunca marcaria um produto como "em breve".
+function withComingSoon(product: Product): Product {
+  const category = LOCAL_CATEGORIES.find((c) => c.slug === product.category);
+  const collection = LOCAL_COLLECTIONS.find((c) => c.slug === product.collectionSlug);
+  return {
+    ...product,
+    categoryComingSoon: category?.comingSoon ?? false,
+    collectionComingSoon: collection?.comingSoon ?? false,
+  };
+}
+
+function sortLocalProducts(products: Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+    if (orderDiff !== 0) return orderDiff;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+}
 
-  // Campos de preço como texto — o navegador brasileiro digita vírgula
-  // ("179,90"), mas um <input type="number"> só aceita ponto e descarta o
-  // valor silenciosamente nesse caso (é o que causava preço salvo como 0).
-  // Guardamos o texto exatamente como digitado e só convertemos para número
-  // aqui, aceitando os dois separadores.
-  const [priceText, setPriceText] = useState(
-    product?.price !== undefined ? String(product.price).replace('.', ',') : ''
-  );
-  const [oldPriceText, setOldPriceText] = useState(
-    product?.oldPrice !== undefined ? String(product.oldPrice).replace('.', ',') : ''
-  );
+function paginateLocal<T>(items: T[], page: number, pageSize: number): PaginatedResult<T> {
+  const from = (page - 1) * pageSize;
+  const pageItems = items.slice(from, from + pageSize);
+  return toPaginated(pageItems, items.length, page, pageSize);
+}
 
-  function parseMoneyInput(raw: string): number | undefined {
-    const normalized = raw.trim().replace(',', '.');
-    if (!normalized) return undefined;
-    const parsed = parseFloat(normalized);
-    return isNaN(parsed) ? undefined : parsed;
+// ---- Funções públicas (vitrine) ---------------------------------------------
+
+export async function getAllProducts(): Promise<Product[]> {
+  if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
+    return sortLocalProducts(getLocalProducts().filter((p) => p.active)).map(withComingSoon);
   }
 
-  function toggleTag(tag: ProductTag) {
-    setForm((f) => ({
-      ...f,
-      tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag],
-    }));
+  const { data, error } = await supabasePublic
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('active', true)
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Erro ao buscar produtos: ${error.message}`);
+  return (data as unknown as ProductRow[]).map(mapRowToProduct);
+}
+
+export async function getFeaturedProducts(): Promise<Product[]> {
+  if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
+    return sortLocalProducts(getLocalProducts().filter((p) => p.active && p.featured)).map(withComingSoon);
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
+  // Faltava o desempate por "created_at" que as outras listagens já têm
+  // (getAllProducts, getProductsByCategory) — sem ele, produtos com o mesmo
+  // "Ordem de exibição" (o padrão é 0 para todos) saíam na ordem "natural"
+  // do banco, que normalmente é a de criação, então um destaque novo
+  // aparecia por ÚLTIMO em vez de primeiro. Com o desempate por mais
+  // recente, um produto recém-marcado como destaque já aparece em primeiro
+  // — a menos que você defina um "Ordem de exibição" manual no admin.
+  const { data, error } = await supabasePublic
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('active', true)
+    .eq('featured', true)
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false });
 
-    const url = mode === 'create' ? '/api/products' : `/api/products/${product!.id}`;
-    const method = mode === 'create' ? 'POST' : 'PATCH';
+  if (error) throw new Error(`Erro ao buscar produtos em destaque: ${error.message}`);
+  return (data as unknown as ProductRow[]).map(mapRowToProduct);
+}
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
+// Listagem pública paginada (usada em /produtos). Substituiu a versão
+// anterior, que devolvia todos os produtos de uma vez.
+export async function getProductsByCategory(
+  category: ProductCategory | 'todos',
+  pagination: PaginationParams = {}
+): Promise<PaginatedResult<Product>> {
+  const page = pagination.page ?? 1;
+  const pageSize = pagination.pageSize ?? 12;
 
-    setSaving(false);
-
-    if (res.ok) {
-      router.push('/admin/dashboard/produtos');
-      router.refresh();
-    } else {
-      const data = await res.json();
-      setError(data.error || 'Não foi possível salvar o produto.');
-    }
+  if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
+    const filtered = getLocalProducts().filter(
+      (p) => p.active && (category === 'todos' || p.category === category)
+    );
+    return paginateLocal(sortLocalProducts(filtered).map(withComingSoon), page, pageSize);
   }
 
-  async function handleDelete() {
-    if (!product) return;
-    if (!confirm(`Excluir "${product.name}"? Esta ação não pode ser desfeita.`)) return;
-    await fetch(`/api/products/${product.id}`, { method: 'DELETE' });
-    router.push('/admin/dashboard/produtos');
-    router.refresh();
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const useInnerJoin = category !== 'todos';
+  let query = supabasePublic
+    .from('products')
+    .select(buildProductSelect(useInnerJoin), { count: 'exact' })
+    .eq('active', true);
+
+  if (useInnerJoin) {
+    query = query.eq('categories.slug', category);
   }
 
-  const inputClass =
-    'w-full border border-sarong-black/20 px-3 py-2 text-sm outline-none focus:border-sarong-black';
-  const labelClass = 'mb-1 block text-xs uppercase tracking-widest2 text-sarong-black/60';
+  const { data, error, count } = await query
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
-  return (
-    <div className="max-w-3xl">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl tracking-tight text-sarong-black">
-          {mode === 'create' ? 'Novo produto' : 'Editar produto'}
-        </h1>
-        {mode === 'edit' && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="flex items-center gap-2 text-xs uppercase tracking-widest2 text-sarong-black/50 hover:text-sarong-red"
-          >
-            <Trash2 size={14} /> Excluir produto
-          </button>
-        )}
-      </div>
+  if (error) throw new Error(`Erro ao buscar produtos da categoria "${category}": ${error.message}`);
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 border border-sarong-black/10 bg-white p-6 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <ImageGallery images={form.images} onChange={(images) => setForm((f) => ({ ...f, images }))} />
-        </div>
+  const items = (data as unknown as ProductRow[]).map(mapRowToProduct);
+  return toPaginated(items, count ?? 0, page, pageSize);
+}
 
-        <div>
-          <label className={labelClass}>Nome</label>
-          <input
-            required
-            value={form.name}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                name: e.target.value,
-                slug: mode === 'create' ? slugify(e.target.value) : f.slug,
-              }))
-            }
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>Slug (URL)</label>
-          <input
-            required
-            value={form.slug}
-            onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-            className={inputClass}
-          />
-        </div>
+export async function getProductBySlug(slug: string): Promise<Product | undefined> {
+  if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
+    const product = getLocalProducts().find((p) => p.active && p.slug === slug);
+    return product ? withComingSoon(product) : undefined;
+  }
 
-        <div className="md:col-span-2">
-          <label className={labelClass}>Descrição curta</label>
-          <input
-            value={form.shortDescription}
-            onChange={(e) => setForm((f) => ({ ...f, shortDescription: e.target.value }))}
-            className={inputClass}
-          />
-        </div>
+  const { data, error } = await supabasePublic
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('active', true)
+    .eq('slug', slug)
+    .maybeSingle();
 
-        <div className="md:col-span-2">
-          <label className={labelClass}>Descrição completa</label>
-          <textarea
-            rows={4}
-            value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            className={inputClass}
-          />
-        </div>
+  if (error) throw new Error(`Erro ao buscar produto "${slug}": ${error.message}`);
+  return data ? mapRowToProduct(data as unknown as ProductRow) : undefined;
+}
 
-        <div>
-          <label className={labelClass}>Preço (R$)</label>
-          <input
-            required
-            type="text"
-            inputMode="decimal"
-            value={priceText}
-            onChange={(e) => {
-              setPriceText(e.target.value);
-              setForm((f) => ({ ...f, price: parseMoneyInput(e.target.value) ?? 0 }));
-            }}
-            placeholder="0,00"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>Preço promocional (opcional)</label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={oldPriceText}
-            onChange={(e) => {
-              setOldPriceText(e.target.value);
-              setForm((f) => ({ ...f, oldPrice: parseMoneyInput(e.target.value) }));
-            }}
-            placeholder="0,00"
-            className={inputClass}
-          />
-        </div>
+export async function getAllSlugs(): Promise<string[]> {
+  if (!IS_SUPABASE_CONFIGURED || !supabasePublic) {
+    return getLocalProducts().filter((p) => p.active).map((p) => p.slug);
+  }
 
-        <div>
-          <label className={labelClass}>Categoria</label>
-          <select
-            required
-            value={form.category}
-            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-            className={inputClass}
-          >
-            {categories.length === 0 && <option value="">Nenhuma categoria cadastrada</option>}
-            {categories.map((c) => (
-              <option key={c.slug} value={c.slug}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass}>Coleção (opcional)</label>
-          <select
-            value={form.collectionSlug}
-            onChange={(e) => setForm((f) => ({ ...f, collectionSlug: e.target.value }))}
-            className={inputClass}
-          >
-            <option value="">Nenhuma</option>
-            {collections.map((c) => (
-              <option key={c.slug} value={c.slug}>{c.name}</option>
-            ))}
-          </select>
-        </div>
+  const { data, error } = await supabasePublic.from('products').select('slug').eq('active', true);
 
-        <div className="md:col-span-2">
-          <label className={labelClass}>Link do Mercado Livre (opcional)</label>
-          <input
-            type="url"
-            value={form.mercadoLivreUrl}
-            onChange={(e) => setForm((f) => ({ ...f, mercadoLivreUrl: e.target.value }))}
-            className={inputClass}
-            placeholder="https://www.mercadolivre.com.br/... — deixe em branco se ainda não tiver o anúncio"
-          />
-        </div>
+  if (error) throw new Error(`Erro ao buscar slugs: ${error.message}`);
+  return (data || []).map((row) => row.slug as string);
+}
 
-        <div className="md:col-span-2">
-          <label className={labelClass}>Link da Shopee (opcional)</label>
-          <input
-            type="url"
-            value={form.shopeeUrl}
-            onChange={(e) => setForm((f) => ({ ...f, shopeeUrl: e.target.value }))}
-            className={inputClass}
-            placeholder="https://shopee.com.br/... — deixe em branco se ainda não tiver o anúncio"
-          />
-        </div>
+// ---- Funções usadas pelo painel administrativo (CRUD) ----------------------
+// Usam supabaseAdmin (service role) porque o admin precisa enxergar e alterar
+// também produtos inativos — algo que a policy pública de RLS não permite.
+//
+// MODO PREVIEW: painel com login local (ver src/lib/auth.ts) — as funções de
+// leitura E escrita abaixo operam sobre o catálogo local editável (ver
+// src/lib/local-products-store.ts).
 
-        <div className="md:col-span-2">
-          <label className={`${labelClass} mb-2`}>Marcadores</label>
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(e) => setForm((f) => ({ ...f, featured: e.target.checked }))}
-              />
-              Destaque (aparece na Home)
-            </label>
-            {TAGS.map((tag) => (
-              <label key={tag.value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.tags.includes(tag.value)}
-                  onChange={() => toggleTag(tag.value)}
-                />
-                {tag.label}
-              </label>
-            ))}
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
-              />
-              Ativo (visível na vitrine)
-            </label>
-          </div>
-        </div>
+export async function getAllProductsAdmin(
+  pagination: PaginationParams = {}
+): Promise<PaginatedResult<Product>> {
+  const page = pagination.page ?? 1;
+  const pageSize = pagination.pageSize ?? 10;
 
-        {error && (
-          <div className="md:col-span-2">
-            <p className="text-xs text-sarong-red">{error}</p>
-          </div>
-        )}
+  if (!IS_SUPABASE_ADMIN_CONFIGURED || !supabaseAdmin) {
+    const sorted = [...getLocalProducts()].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return paginateLocal(sorted, page, pageSize);
+  }
 
-        <div className="flex gap-4 md:col-span-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-sarong-black px-6 py-3 text-xs uppercase tracking-widest2 text-sarong-off hover:bg-sarong-red disabled:opacity-50"
-          >
-            {saving ? 'Salvando…' : 'Salvar'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push('/admin/dashboard/produtos')}
-            className="border border-sarong-black/20 px-6 py-3 text-xs uppercase tracking-widest2 text-sarong-black/70 hover:border-sarong-black hover:text-sarong-black"
-          >
-            Cancelar
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabaseAdmin
+    .from('products')
+    .select(PRODUCT_SELECT, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) throw new Error(`Erro ao buscar produtos (admin): ${error.message}`);
+
+  const items = (data as unknown as ProductRow[]).map(mapRowToProduct);
+  return toPaginated(items, count ?? 0, page, pageSize);
+}
+
+// Resolve o slug de categoria/coleção enviado pelo formulário para o `id`
+// correspondente na tabela — mantém a rota de API livre de saber que agora
+// existe uma FK por trás do campo `category`.
+export async function getProductByIdAdmin(id: string): Promise<Product | undefined> {
+  if (!IS_SUPABASE_ADMIN_CONFIGURED || !supabaseAdmin) {
+    return getLocalProducts().find((p) => p.id === id);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw new Error(`Erro ao buscar produto (admin): ${error.message}`);
+  return data ? mapRowToProduct(data as unknown as ProductRow) : undefined;
+}
+
+export interface ProductStats {
+  total: number;
+  featured: number;
+  promo: number;
+}
+
+// Usado pelo resumo do Dashboard (V1.2). Usa count com head:true — traz só a
+// contagem, sem baixar as linhas, então continua barato mesmo com o catálogo
+// crescendo.
+export async function getProductStats(): Promise<ProductStats> {
+  if (!IS_SUPABASE_ADMIN_CONFIGURED || !supabaseAdmin) {
+    return {
+      total: getLocalProducts().length,
+      featured: getLocalProducts().filter((p) => p.featured).length,
+      promo: getLocalProducts().filter((p) => p.tags.includes('promocao')).length,
+    };
+  }
+
+  const [totalRes, featuredRes, promoRes] = await Promise.all([
+    supabaseAdmin.from('products').select('*', { count: 'exact', head: true }),
+    supabaseAdmin.from('products').select('*', { count: 'exact', head: true }).eq('featured', true),
+    supabaseAdmin.from('products').select('*', { count: 'exact', head: true }).eq('is_promo', true),
+  ]);
+
+  if (totalRes.error) throw new Error(`Erro ao buscar estatísticas: ${totalRes.error.message}`);
+
+  return {
+    total: totalRes.count ?? 0,
+    featured: featuredRes.count ?? 0,
+    promo: promoRes.count ?? 0,
+  };
+}
+
+async function resolveCategoryId(categorySlug: string | undefined): Promise<string | null> {
+  if (!categorySlug || !supabaseAdmin) return null;
+  const { data } = await supabaseAdmin.from('categories').select('id').eq('slug', categorySlug).maybeSingle();
+  return data?.id ?? null;
+}
+
+async function resolveCollectionId(collectionSlug: string | undefined): Promise<string | null> {
+  if (!collectionSlug || !supabaseAdmin) return null;
+  const { data } = await supabaseAdmin
+    .from('collections')
+    .select('id')
+    .eq('slug', collectionSlug)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function createProduct(product: Product): Promise<Product> {
+  if (!IS_SUPABASE_ADMIN_CONFIGURED || !supabaseAdmin) {
+    const category = LOCAL_CATEGORIES.find((c) => c.slug === product.category);
+    const collection = LOCAL_COLLECTIONS.find((c) => c.slug === product.collectionSlug);
+    const withNames: Product = {
+      ...product,
+      categoryName: category?.name,
+      collectionId: collection?.id,
+      collectionName: collection?.name,
+      displayOrder: product.displayOrder ?? 0,
+    };
+    saveLocalProducts([withNames, ...getLocalProducts()]);
+    return withNames;
+  }
+
+  const categoryId = await resolveCategoryId(product.category);
+  const collectionId = await resolveCollectionId(product.collectionSlug);
+
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .insert({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      short_description: product.shortDescription,
+      description: product.description,
+      features: product.features,
+      price: product.price,
+      old_price: product.oldPrice ?? null,
+      category_id: categoryId,
+      collection_id: collectionId,
+      images: product.images,
+      mercado_livre_url: product.mercadoLivreUrl || null,
+      shopee_url: product.shopeeUrl || null,
+      featured: product.featured,
+      is_new: product.tags.includes('novo'),
+      is_promo: product.tags.includes('promocao'),
+      is_bestseller: product.tags.includes('mais-vendido'),
+      active: product.active,
+    })
+    .select(PRODUCT_SELECT)
+    .single();
+
+  if (error) throw new Error(`Erro ao criar produto: ${error.message}`);
+  return mapRowToProduct(data as unknown as ProductRow);
+}
+
+export async function updateProduct(
+  id: string,
+  patch: Partial<Product>
+): Promise<Product | null> {
+  if (!IS_SUPABASE_ADMIN_CONFIGURED || !supabaseAdmin) {
+    const products = getLocalProducts();
+    const index = products.findIndex((p) => p.id === id);
+    if (index === -1) return null;
+
+    const current = products[index];
+    const category = patch.category !== undefined ? LOCAL_CATEGORIES.find((c) => c.slug === patch.category) : undefined;
+    const collection =
+      patch.collectionSlug !== undefined ? LOCAL_COLLECTIONS.find((c) => c.slug === patch.collectionSlug) : undefined;
+
+    const merged: Product = {
+      ...current,
+      ...patch,
+      categoryName: patch.category !== undefined ? category?.name : current.categoryName,
+      collectionId: patch.collectionSlug !== undefined ? collection?.id : current.collectionId,
+      collectionName: patch.collectionSlug !== undefined ? collection?.name : current.collectionName,
+    };
+
+    const next = [...products];
+    next[index] = merged;
+    saveLocalProducts(next);
+    return merged;
+  }
+
+  const update: Record<string, unknown> = {};
+
+  if (patch.name !== undefined) update.name = patch.name;
+  if (patch.slug !== undefined) update.slug = patch.slug;
+  if (patch.shortDescription !== undefined) update.short_description = patch.shortDescription;
+  if (patch.description !== undefined) update.description = patch.description;
+  if (patch.features !== undefined) update.features = patch.features;
+  if (patch.price !== undefined) update.price = patch.price;
+  if (patch.oldPrice !== undefined) update.old_price = patch.oldPrice;
+  if (patch.images !== undefined) update.images = patch.images;
+  if (patch.mercadoLivreUrl !== undefined) update.mercado_livre_url = patch.mercadoLivreUrl || null;
+  if (patch.shopeeUrl !== undefined) update.shopee_url = patch.shopeeUrl || null;
+  if (patch.featured !== undefined) update.featured = patch.featured;
+  if (patch.active !== undefined) update.active = patch.active;
+  if (patch.stock !== undefined) update.stock = patch.stock;
+  if (patch.sku !== undefined) update.sku = patch.sku;
+  if (patch.displayOrder !== undefined) update.display_order = patch.displayOrder;
+  if (patch.category !== undefined) update.category_id = await resolveCategoryId(patch.category);
+  if (patch.collectionSlug !== undefined) update.collection_id = await resolveCollectionId(patch.collectionSlug);
+  if (patch.tags !== undefined) {
+    update.is_new = patch.tags.includes('novo');
+    update.is_promo = patch.tags.includes('promocao');
+    update.is_bestseller = patch.tags.includes('mais-vendido');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .update(update)
+    .eq('id', id)
+    .select(PRODUCT_SELECT)
+    .maybeSingle();
+
+  if (error) throw new Error(`Erro ao atualizar produto: ${error.message}`);
+  return data ? mapRowToProduct(data as unknown as ProductRow) : null;
+}
+
+export async function deleteProduct(id: string): Promise<boolean> {
+  if (!IS_SUPABASE_ADMIN_CONFIGURED || !supabaseAdmin) {
+    const products = getLocalProducts();
+    const next = products.filter((p) => p.id !== id);
+    const changed = next.length !== products.length;
+    if (changed) saveLocalProducts(next);
+    return changed;
+  }
+
+  const { error, count } = await supabaseAdmin.from('products').delete({ count: 'exact' }).eq('id', id);
+
+  if (error) throw new Error(`Erro ao excluir produto: ${error.message}`);
+  return (count ?? 0) > 0;
 }
