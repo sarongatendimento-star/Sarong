@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Upload, X, Link as LinkIcon } from 'lucide-react';
+import { Upload, X, Link as LinkIcon, GripVertical } from 'lucide-react';
 
 interface ImageGalleryProps {
   images: string[];
@@ -15,10 +15,47 @@ interface ImageGalleryProps {
 // uma imagem já hospedada externamente — útil porque o upload local tem um
 // limite de tamanho menor (1MB) para caber com folga no limite de payload da
 // Vercel. Os dois métodos alimentam a mesma lista `images`, sem distinção.
+//
+// V1.4: reordenar arrastando as miniaturas (drag and drop nativo do
+// navegador, sem biblioteca nova) em vez de precisar excluir e reenviar na
+// ordem certa. A ORDEM da lista `images` é o que importa em todo o resto do
+// site: a primeira imagem é sempre a capa (usada no card de produto, na
+// galeria da página do produto e no preço/imagem que vai para o Google via
+// JSON-LD) — por isso ela ganha o selo "Capa" aqui.
 export default function ImageGallery({ images, onChange }: ImageGalleryProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [urlInput, setUrlInput] = useState('');
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  function handleDragStart(index: number) {
+    setDragIndex(index);
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault(); // necessário para o navegador permitir o drop aqui
+    if (index !== overIndex) setOverIndex(index);
+  }
+
+  function handleDrop(index: number) {
+    if (dragIndex === null || dragIndex === index) {
+      setDragIndex(null);
+      setOverIndex(null);
+      return;
+    }
+    const next = [...images];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(index, 0, moved);
+    onChange(next);
+    setDragIndex(null);
+    setOverIndex(null);
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null);
+    setOverIndex(null);
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -49,8 +86,10 @@ export default function ImageGallery({ images, onChange }: ImageGalleryProps) {
     setError('');
   }
 
-  function removeImage(url: string) {
-    onChange(images.filter((img) => img !== url));
+  // Remove por posição, não por URL — se a mesma imagem aparecer duas vezes
+  // na galeria, filtrar por URL apagaria as duas de uma vez só.
+  function removeImage(index: number) {
+    onChange(images.filter((_, i) => i !== index));
   }
 
   return (
@@ -59,12 +98,33 @@ export default function ImageGallery({ images, onChange }: ImageGalleryProps) {
         Imagens
       </label>
       <div className="flex flex-wrap gap-3">
-        {images.map((img) => (
-          <div key={img} className="group relative h-24 w-24">
-            <img src={img} alt="" className="h-24 w-24 object-cover" />
+        {images.map((img, index) => (
+          <div
+            key={`${img}-${index}`}
+            draggable
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={() => handleDrop(index)}
+            onDragEnd={handleDragEnd}
+            className={`group relative h-24 w-24 cursor-grab transition-opacity active:cursor-grabbing ${
+              dragIndex === index ? 'opacity-30' : ''
+            } ${overIndex === index && dragIndex !== null && dragIndex !== index ? 'ring-2 ring-sarong-red' : ''}`}
+          >
+            <img src={img} alt="" className="h-24 w-24 object-cover" draggable={false} />
+
+            {index === 0 && (
+              <span className="absolute left-1 top-1 bg-sarong-black/80 px-1.5 py-0.5 text-[9px] uppercase tracking-widest2 text-sarong-off">
+                Capa
+              </span>
+            )}
+
+            <span className="absolute bottom-1 left-1 rounded-full bg-sarong-black/60 p-0.5 text-sarong-off opacity-0 transition-opacity group-hover:opacity-100">
+              <GripVertical size={12} />
+            </span>
+
             <button
               type="button"
-              onClick={() => removeImage(img)}
+              onClick={() => removeImage(index)}
               aria-label="Remover imagem"
               className="absolute -right-2 -top-2 rounded-full bg-sarong-black p-1 text-sarong-off opacity-0 transition-opacity group-hover:opacity-100"
             >
@@ -104,7 +164,8 @@ export default function ImageGallery({ images, onChange }: ImageGalleryProps) {
 
       {error && <p className="mt-2 text-xs text-sarong-red">{error}</p>}
       <p className="mt-2 text-[11px] text-sarong-black/40">
-        Upload local: até 1MB por imagem. Para imagens maiores, use o campo de URL acima.
+        Arraste as miniaturas para reordenar — a primeira é sempre a capa do produto. Upload local: até 1MB
+        por imagem. Para imagens maiores, use o campo de URL acima.
       </p>
     </div>
   );
